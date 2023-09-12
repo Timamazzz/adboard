@@ -1,13 +1,10 @@
 import sys
-import numpy as np
 from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt
 import time
 import threading
-import cv2
-
 from camera.services import ImageReceiver
-
+import cv2 as cv
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -38,16 +35,32 @@ class MainWindow(QWidget):
     def perform_operation(self):
         while True:
             if not self.image_receiver.image_queue.empty():
-                image_data = self.image_receiver.image_queue.get()
-                if not self.is_show_ad:
-                    print("Starting operation...")
-                    time.sleep(10)
-                    print("Operation completed.")
-                    self.image_receiver.image_queue.task_done()
-                else:
-                    self.image_receiver.image_queue.task_done()
+                if (self.image_receiver.last_image_time - time.time()) >= 0:
+                    image_data = self.image_receiver.image_queue.get()
+                    if not self.is_show_ad:
+                        self.predict_gender(image_data)
+                        print("Starting operation...")
+                        time.sleep(10)
+                        print("Operation completed.")
+                        self.image_receiver.image_queue.task_done()
+                    else:
+                        self.image_receiver.image_queue.task_done()
             else:
                 time.sleep(1)
+
+    def predict_gender(self, image_data):
+        genderProto = "models/gender_deploy.prototxt"
+        genderModel = "models/gender_net.caffemodel"
+        genderNet = cv.dnn.readNet(genderModel, genderProto)
+
+        genderList = ['Male', 'Female']
+
+        blob = cv.dnn.blobFromImage(face, 1, (227, 227), MODEL_MEAN_VALUES, swapRB=False)
+        genderNet.setInput(blob)
+        genderPreds = genderNet.forward()
+        gender = genderList[genderPreds[0].argmax()]
+
+        return "Gender : {}".format(gender)
 
 
 def main():

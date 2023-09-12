@@ -1,8 +1,10 @@
 import sys
+import numpy as np
 from PyQt6.QtWidgets import QApplication, QLabel, QVBoxLayout, QWidget
 from PyQt6.QtCore import Qt, QTimer
 import time
 import threading
+import cv2
 
 from camera.services import ImageReceiver
 
@@ -23,23 +25,29 @@ class MainWindow(QWidget):
         self.label.setFont(font)
         self.layout.addWidget(self.label)
 
-        self.timer_label = QLabel('Time: 0 sec', self)
-        self.timer_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.timer_label.setStyleSheet("color: white;")
-        self.layout.addWidget(self.timer_label)
-
-        self.start_time = time.time()
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_timer)
+        self.is_show_ad = False
 
         self.image_receiver = ImageReceiver()
         self.image_receiver_thread = threading.Thread(target=self.image_receiver.receive_images)
         self.image_receiver_thread.start()
 
-    def update_timer(self):
-        elapsed_time = int(time.time() - self.start_time)
-        self.timer_label.setText(f'Time: {elapsed_time} sec')
+        self.operation_thread = threading.Thread(target=self.perform_operation)
+        self.operation_thread.daemon = True
+        self.operation_thread.start()
+
+    def perform_operation(self):
+        while True:
+            if not self.image_receiver.image_queue.empty():
+                image_data = self.image_receiver.image_queue.get()
+                if not self.is_show_ad:
+                    print("Starting operation...")
+                    time.sleep(10)
+                    print("Operation completed.")
+                    self.image_receiver.image_queue.task_done()
+                else:
+                    self.image_receiver.image_queue.task_done()
+            else:
+                time.sleep(1)
 
 
 def main():
